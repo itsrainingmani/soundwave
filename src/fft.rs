@@ -1,16 +1,15 @@
 extern crate rustfft;
-
 use rustfft::{num_complex::Complex, FftPlanner};
+
+pub const FFT_CHUNK_SIZE: usize = 2048;
 
 pub fn process_stream_data(stream_data: &[f32]) -> Vec<Complex<f32>> {
     // let fft_size = 1024;
 
-    let fft_size = 2048;
-
     let mut planner = FftPlanner::new();
-    let fft = planner.plan_fft_forward(fft_size);
+    let fft = planner.plan_fft_forward(FFT_CHUNK_SIZE);
 
-    let last_chunk = stream_data.chunks_exact(fft_size).last().unwrap();
+    let last_chunk = stream_data.chunks_exact(FFT_CHUNK_SIZE).last().unwrap();
 
     let mut signal: Vec<Complex<f32>> = last_chunk
         .iter()
@@ -22,8 +21,8 @@ pub fn process_stream_data(stream_data: &[f32]) -> Vec<Complex<f32>> {
 
     fft.process(&mut signal);
 
-    let halfway = fft_size / 2;
-    let three_quarters = fft_size * 3 / 4;
+    let halfway = FFT_CHUNK_SIZE / 2;
+    // let three_quarters = FFT_CHUNK_SIZE * 3 / 4;
 
     signal[halfway..].to_vec()
 
@@ -40,8 +39,4 @@ pub fn process_stream_data(stream_data: &[f32]) -> Vec<Complex<f32>> {
     //     .for_each(|(a, b)| {
     //         *a = *a * normalization_const * b.conj();
     //     });
-}
-
-pub fn process() {
-    println!("hey there");
 }

@@ -1,6 +1,7 @@
 mod buffer;
 mod fft;
 
+use buffer::BufferWrapper;
 use core::borrow::{Borrow, BorrowMut};
 use cpal::{self, FromSample, SampleRate};
 use cpal::{
@@ -9,22 +10,19 @@ use cpal::{
 };
 use dasp::Sample;
 use dasp_signal::Signal;
-use std::{collections::VecDeque, sync::mpsc};
-
+use fft::FFT_CHUNK_SIZE;
 use minifb::{Key, Window, WindowOptions};
 use plotters::{chart::ChartState, coord::types::RangedCoordf32, prelude::*};
 use plotters_backend::{text_anchor::HPos, text_anchor::Pos, text_anchor::VPos, BackendColor};
-
-use crate::buffer::BufferWrapper;
 use plotters_bitmap::bitmap_pixel::BGRXPixel;
 use rustfft::num_complex::{Complex32, ComplexFloat};
+use std::{collections::VecDeque, sync::mpsc, vec};
 
-const SAMPLE_CHUNK_SIZE: usize = 512; // We don't know sample chunk size
-const FFT_CHUNK_SIZE: usize = 4096;
+// const SAMPLE_CHUNK_SIZE: usize = 512; // We don't know sample chunk size
 
 // window constants
-const W: usize = 640;
-const H: usize = 480;
+const W: usize = 1000;
+const H: usize = 800;
 
 type Result<T> = anyhow::Result<T>;
 
@@ -44,13 +42,17 @@ fn initialize_chart_state(
     root.fill(&WHITE)?;
 
     let mut chart = ChartBuilder::on(&root)
-        .caption("Some Sounds in PCM", ("Arial", 20).into_font())
-        .margin(5u32)
+        .caption("SoundWave", ("Arial", 20).into_font())
+        // .margin(5u32)
         .x_label_area_size(40u32)
         .y_label_area_size(40u32)
         .build_cartesian_2d(0f32..2f32, -1f32..1f32)?;
 
-    chart.configure_mesh().draw()?;
+    chart
+        .configure_mesh()
+        // .x_label_style(&RED)
+        // .y_label_style(&RED)
+        .draw()?;
 
     Ok(chart.into_chart_state())
 }
@@ -74,13 +76,17 @@ fn get_fft_frame(
         .light_line_style(&TRANSPARENT)
         .draw()?;
 
+    // println!("{:?}", fft_data.first());
+
     chart.draw_series(
         fft_data
             .iter()
             .zip(fft_data.iter().skip(1))
             .enumerate()
             .map(|(n, (point_0, point_1))| {
-                let chart_width = 2.0;
+                // How much of the frequency domain we want to display
+                // Higher number shows fewer frequency bins
+                let chart_width = 4.0;
 
                 let x_val: f32 = chart_width * n as f32 / fft_data.len() as f32;
                 let x_step: f32 = chart_width / fft_data.len() as f32;
@@ -109,7 +115,9 @@ fn get_fft_frame(
         .unwrap()
         .0;
 
-    let freq_bin = sample_rate / 1024 / 2; // TODO: add fft size as constant somehwere
+    let freq_bin = sample_rate / FFT_CHUNK_SIZE; // TODO: add fft size as constant somehwere
+
+    println!("FreqBin: {:?} | Max Bin Idx: {:?}", freq_bin, max_bin_index);
 
     let frequency = freq_bin * max_bin_index;
 
@@ -133,7 +141,7 @@ fn get_fft_frame(
     Ok(chart_buffer.0)
 }
 
-fn get_chart_frame(
+fn _get_chart_frame(
     initial_chart: &ChartState<Cartesian2d<RangedCoordf32, RangedCoordf32>>,
     stream_data: &[f32],
     sample_window: f32,
@@ -253,6 +261,7 @@ fn main() -> Result<()> {
     let output_handle = std::thread::spawn(move || {
         run_output::<f32>(&output_device, &output_config.into()).unwrap();
     });
+    // let sample_window = 1. / input_config.sample_rate.0 as f32;
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         let frame_start = std::time::Instant::now();
@@ -270,7 +279,14 @@ fn main() -> Result<()> {
 
         let stream_data = sample_buffer.make_contiguous();
 
-        // let frame = get_chart_frame(&initial_chart, &stream_data,  sample_window, config.sample_rate.0 as f32, frame_count);
+        // let frame = get_chart_frame(
+        //     &initial_chart,
+        //     &stream_data,
+        //     sample_window,
+        //     input_config.sample_rate.0 as f32,
+        //     frame_count,
+        // )?;
+        // window.update_with_buffer(frame.as_slice(), W, H).unwrap();
 
         if stream_data.len() >= 4096 {
             let fft_data = fft::process_stream_data(stream_data);
