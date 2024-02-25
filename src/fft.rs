@@ -2,9 +2,23 @@ extern crate rustfft;
 use rustfft::{num_complex::Complex, FftPlanner};
 
 pub const FFT_CHUNK_SIZE: usize = 2048;
+// pub const FFT_CHUNK_SIZE: usize = 1024;
+
+// Function to generate a Hamming window
+fn hamming_window(size: usize) -> Vec<f32> {
+    let alpha = 0.54;
+    let beta = 1.0 - alpha;
+    (0..size)
+        .map(|n| {
+            alpha - beta * ((2.0 * std::f32::consts::PI * n as f32) / (size as f32 - 1.0)).cos()
+        })
+        .collect()
+}
 
 pub fn process_stream_data(stream_data: &[f32]) -> Vec<Complex<f32>> {
     // let fft_size = 1024;
+    let fft_size = stream_data.len();
+    let hamming = hamming_window(fft_size);
 
     let mut planner = FftPlanner::new();
     let fft = planner.plan_fft_forward(FFT_CHUNK_SIZE);
@@ -21,22 +35,12 @@ pub fn process_stream_data(stream_data: &[f32]) -> Vec<Complex<f32>> {
 
     fft.process(&mut signal);
 
+    let normalization_factor = (fft_size as f32).sqrt();
+    for x in &mut signal {
+        *x /= normalization_factor;
+    }
+
     let halfway = FFT_CHUNK_SIZE / 2;
-    // let three_quarters = FFT_CHUNK_SIZE * 3 / 4;
 
     signal[halfway..].to_vec()
-
-    // lol wtf does this mean
-    //
-    // // rustfft doesn't normalize when it computes the fft, so we need to normalize ourselves by
-    // // dividing by `sqrt(signal.len())` each time we take an fft or inverse fft.
-    // // Since the fft is linear and we are doing fft -> inverse fft, we can just divide by
-    // // `signal.len()` once.
-    // let normalization_const = T::one() / T::from_usize(signal.len()).unwrap();
-    // signal
-    //     .iter_mut()
-    //     .zip(truncated_signal_complex.iter())
-    //     .for_each(|(a, b)| {
-    //         *a = *a * normalization_const * b.conj();
-    //     });
 }

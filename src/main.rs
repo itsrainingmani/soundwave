@@ -9,9 +9,8 @@ use minifb::{Key, Window, WindowOptions};
 
 use std::{borrow::BorrowMut, collections::VecDeque, sync::mpsc, vec};
 
-use soundwave::buffer::*;
-use soundwave::fft;
 use soundwave::ui::*;
+use soundwave::{buffer::*, fft};
 
 type Result<T> = anyhow::Result<T>;
 
@@ -68,7 +67,7 @@ fn main() -> Result<()> {
     println!("Playing... ");
 
     // initialize window
-    let mut window = Window::new("Window", W, H, WindowOptions::default())?;
+    let mut window = Window::new("Soundwave", W, H, WindowOptions::default())?;
 
     let buttery_smooth = Some(std::time::Duration::from_secs(1) / 60); //60 fps;
     window.limit_update_rate(buttery_smooth);
